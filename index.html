@@ -1,0 +1,772 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Pre-punch list</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #E3E6E4;
+    --surface: #FFFFFF;
+    --field: #F2F4F3;
+    --ink: #16202A;
+    --muted: #566370;
+    --rule: #C2C8C5;
+    --btn: #16202A;
+    --btn-ink: #FFFFFF;
+    --open: #D63F17;
+    --recheck: #0D7B86;
+    --closed: #3A7F51;
+    --danger: #B3261E;
+    --scrim: rgba(10, 16, 22, 0.5);
+    --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #13181C; --surface: #1E252B; --field: #2A333A; --ink: #EDF0F1; --muted: #9AA7B1;
+      --rule: #38434B; --btn: #EDF0F1; --btn-ink: #13181C;
+      --open: #FF7048; --recheck: #3FC3CF; --closed: #62B982; --danger: #FF8A80;
+      --scrim: rgba(0, 0, 0, 0.62); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #13181C; --surface: #1E252B; --field: #2A333A; --ink: #EDF0F1; --muted: #9AA7B1;
+    --rule: #38434B; --btn: #EDF0F1; --btn-ink: #13181C;
+    --open: #FF7048; --recheck: #3FC3CF; --closed: #62B982; --danger: #FF8A80;
+    --scrim: rgba(0, 0, 0, 0.62); color-scheme: dark;
+  }
+
+  html { height: 100%; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.4 var(--body);
+    -webkit-text-size-adjust: 100%;
+  }
+  body.locked { overflow: hidden; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .wrap { max-width: 640px; margin: 0 auto; }
+
+  .top {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h1 { margin: 0; font: 700 38px/1 var(--display); letter-spacing: 0.01em; }
+  .whoRow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 4px 0 12px; }
+  .linkbtn {
+    padding: 6px 0;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-size: 16px;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 4px;
+  }
+  .linkbtn[disabled] { text-decoration: none; cursor: default; }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tab {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 48px; padding: 0 6px;
+    background: transparent;
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    font: 600 19px/1 var(--display);
+    letter-spacing: 0.02em;
+  }
+  .tab .dot { width: 11px; height: 11px; border-radius: 2px; background: var(--c); flex: none; }
+  .tab[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .tab .n { font-variant-numeric: tabular-nums; }
+
+  .toolbar { display: flex; gap: 8px; padding: 14px 16px 4px; }
+  .toolbar select { flex: 1; min-width: 0; min-height: 44px; padding: 0 10px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; }
+  .ghost { min-height: 44px; padding: 0 14px; background: transparent; border: 1px solid var(--rule); border-radius: 8px; font-weight: 600; }
+
+  main { padding: 8px 16px calc(120px + env(safe-area-inset-bottom, 0px)); }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .card {
+    display: flex; width: 100%; text-align: left; padding: 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .card .bar { width: 8px; flex: none; background: var(--c); }
+  .card .body { flex: 1; min-width: 0; padding: 12px 14px; display: grid; gap: 6px; }
+  .area { font: 700 24px/1.05 var(--display); letter-spacing: 0.01em; overflow-wrap: anywhere; }
+  .area.none { color: var(--muted); font-weight: 600; }
+  .desc { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .meta { color: var(--muted); font-size: 14px; line-height: 1.3; }
+  .tag { justify-self: start; padding: 2px 8px; border: 1px solid var(--rule); border-radius: 4px; font-size: 13px; font-weight: 600; }
+  .thumb { width: 78px; height: 78px; margin: 12px 12px 12px 0; border-radius: 6px; object-fit: cover; background: var(--field); flex: none; align-self: flex-start; }
+  .thumb.wait { display: grid; place-items: center; color: var(--muted); font-size: 12px; }
+  .empty { padding: 40px 8px; text-align: center; color: var(--muted); }
+  .empty strong { display: block; margin-bottom: 4px; font: 700 24px/1.1 var(--display); color: var(--ink); }
+  .notice { margin: 12px 16px 0; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 15px; }
+
+  .addbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg);
+    border-top: 1px solid var(--rule);
+  }
+  .primary {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; min-height: 56px;
+    background: var(--btn); color: var(--btn-ink);
+    border: 0; border-radius: 10px;
+    font: 700 24px/1 var(--display); letter-spacing: 0.03em;
+  }
+  .addbar .primary { max-width: 640px; margin: 0 auto; }
+  .primary[disabled] { opacity: 0.45; cursor: default; }
+  .primary svg { width: 22px; height: 22px; }
+
+  .scrim { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; background: var(--scrim); }
+  .scrim.center { align-items: center; padding: 16px; }
+  .sheet {
+    width: 100%; max-width: 640px;
+    max-height: 92vh; max-height: 92dvh;
+    overflow-y: auto;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-radius: 14px 14px 0 0;
+    animation: rise 0.18s ease-out;
+  }
+  .center .sheet { border-radius: 14px; }
+  @keyframes rise { from { transform: translateY(24px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+  .sheet h2 { margin: 0 0 14px; font: 700 28px/1 var(--display); }
+  .sheet p.lead { margin: 0 0 14px; color: var(--muted); }
+  .field { display: grid; gap: 6px; margin-bottom: 14px; }
+  .field > label, .field > .lbl { font-weight: 600; font-size: 15px; }
+  .field input, .field select, .field textarea {
+    width: 100%; min-height: 50px; padding: 10px 12px;
+    background: var(--field); border: 1px solid var(--rule); border-radius: 8px; font-size: 16px;
+  }
+  .field textarea { min-height: 96px; resize: vertical; }
+  .photo-add {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; min-height: 56px; background: transparent;
+    border: 2px dashed var(--muted); border-radius: 8px; font-weight: 600;
+  }
+  .photo-add svg { width: 24px; height: 24px; }
+  .photo-view { display: grid; gap: 8px; }
+  .photo-view img { width: 100%; max-height: 300px; object-fit: contain; background: var(--field); border-radius: 8px; }
+  .row { display: flex; gap: 8px; }
+  .row > button { flex: 1; }
+  .small { min-height: 44px; padding: 0 12px; background: transparent; border: 1px solid var(--rule); border-radius: 8px; font-weight: 600; }
+  .status-set { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .status-set button {
+    display: grid; place-items: center; gap: 6px;
+    min-height: 62px; padding: 8px 4px;
+    background: transparent; border: 2px solid var(--rule); border-radius: 8px;
+    font: 600 17px/1.05 var(--display); text-align: center;
+  }
+  .status-set button::before { content: ""; width: 24px; height: 6px; border-radius: 2px; background: var(--c); }
+  .status-set button[aria-pressed="true"] { border-color: var(--ink); background: var(--field); }
+  .history { margin: 0 0 14px; color: var(--muted); font-size: 14px; display: grid; gap: 2px; }
+  .err { margin: 0 0 12px; color: var(--danger); font-weight: 600; }
+  .actions { display: grid; gap: 8px; margin-top: 6px; }
+  .quiet { min-height: 48px; background: transparent; border: 0; font-weight: 600; color: var(--muted); }
+  .quiet.danger { color: var(--danger); }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%); z-index: 30;
+    padding: 10px 16px; background: var(--btn); color: var(--btn-ink);
+    border-radius: 8px; font-weight: 600; max-width: calc(100% - 32px);
+  }
+  .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<header class="top" id="top" hidden>
+  <div class="wrap">
+    <h1>Pre-punch list</h1>
+    <div class="whoRow">
+      <button class="linkbtn" id="jobBtn" type="button"></button>
+      <button class="linkbtn" id="whoBtn" type="button"></button>
+    </div>
+    <div class="tabs" role="group" aria-label="Filter by status" id="tabs"></div>
+  </div>
+</header>
+
+<div class="wrap" id="notice"></div>
+<div class="wrap toolbar" id="toolbar" hidden></div>
+<main class="wrap" id="mainWrap" hidden><ul class="list" id="list"></ul></main>
+
+<div class="addbar" id="addbar" hidden>
+  <button class="primary" id="addBtn" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg>
+    Add item
+  </button>
+</div>
+
+<div id="layer"></div>
+<div id="toastHost" aria-live="polite"></div>
+
+<script>
+/* =====================================================================
+   SETTINGS: paste your two Supabase values here (see SETUP.md, step 3).
+   These are meant to be public. The team code protects the data.
+   ===================================================================== */
+var SUPABASE_URL = 'https://ncvlztfndmgkpxqgkghe.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_vRyAYj0hhWT5p5WCFqF5Ng_Bvgqr5ag';
+
+(function () {
+  'use strict';
+
+  var TRADES = ['Sitework', 'Concrete', 'Masonry', 'Structural steel', 'Carpentry', 'Roofing and waterproofing',
+    'Doors, frames and hardware', 'Glazing', 'Drywall and ceilings', 'Painting', 'Flooring', 'Specialties',
+    'Fire protection', 'Plumbing', 'HVAC', 'Electrical', 'Low voltage', 'Other'];
+  var STATUS = {
+    open: { label: 'Open', short: 'Open', color: 'var(--open)' },
+    recheck: { label: 'Fixed, needs recheck', short: 'Recheck', color: 'var(--recheck)' },
+    closed: { label: 'Closed', short: 'Closed', color: 'var(--closed)' }
+  };
+  var ORDER = ['open', 'recheck', 'closed'];
+  var POLL_MS = 15000;
+
+  var state = { name: '', code: '' };
+  var items = [], loaded = false, loadError = false, jobName = '';
+  var thumbs = {}, thumbPending = {};
+  var tab = 'open', tradeFilter = '';
+  var lastArea = '', lastTrade = '';
+  var pollTimer = null, started = false;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  function recall(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+
+  function el(tag, props) {
+    var n = document.createElement(tag);
+    var p = props || {};
+    Object.keys(p).forEach(function (k) {
+      var v = p[k];
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k === 'style') n.style.cssText = v;
+      else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), v);
+      else if (v === true) n.setAttribute(k, '');
+      else if (v !== false && v != null) n.setAttribute(k, v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var c = arguments[i];
+      if (Array.isArray(c)) c.forEach(function (x) { if (x != null && x !== false) n.append(x); });
+      else if (c != null && c !== false) n.append(c);
+    }
+    return n;
+  }
+  function svg(markup) { var t = document.createElement('template'); t.innerHTML = markup; return t.content.firstChild; }
+  var CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+
+  function when(iso) {
+    if (!iso) return '';
+    var d = new Date(iso), now = new Date();
+    if (isNaN(d)) return '';
+    var t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    var key = function (x) { return x.getFullYear() * 10000 + x.getMonth() * 100 + x.getDate(); };
+    var y = new Date(now); y.setDate(now.getDate() - 1);
+    if (key(d) === key(now)) return 'today at ' + t;
+    if (key(d) === key(y)) return 'yesterday at ' + t;
+    var o = { month: 'short', day: 'numeric' };
+    if (d.getFullYear() !== now.getFullYear()) o.year = 'numeric';
+    return d.toLocaleDateString([], o) + ' at ' + t;
+  }
+  function who(n) {
+    n = (n || '').trim();
+    if (!n) return 'someone';
+    return n.toLowerCase() === state.name.trim().toLowerCase() ? 'you' : n;
+  }
+  function toast(msg) {
+    var host = $('toastHost');
+    host.textContent = '';
+    var t = el('div', { class: 'toast', text: msg });
+    host.append(t);
+    setTimeout(function () { if (t.parentNode) t.remove(); }, 2200);
+  }
+
+  /* ---------- database calls (plain REST, no library) ---------- */
+  async function api(path, opts) {
+    opts = opts || {};
+    var headers = { 'apikey': SUPABASE_KEY, 'x-team-code': state.code };
+    if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+    if (opts.prefer) headers['Prefer'] = opts.prefer;
+    var res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body)
+    });
+    if (!res.ok) {
+      var e = new Error('HTTP ' + res.status);
+      e.status = res.status;
+      throw e;
+    }
+    var text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+  async function codeIsValid() {
+    var r = await api('rpc/team_ok', { method: 'POST', body: {} });
+    return r === true;
+  }
+  function errText(e) {
+    if (e && (e.status === 401 || e.status === 403)) return 'The team code was rejected. Tap your name at the top to enter it again.';
+    if (e && e.status === 413) return 'That photo is too large to save.';
+    return 'Couldn’t save. Check your connection and try again.';
+  }
+
+  /* ---------- gate (name + team code) ---------- */
+  function configured() {
+    return SUPABASE_URL.indexOf('YOUR-PROJECT') === -1 && SUPABASE_KEY.indexOf('YOUR-') === -1;
+  }
+  function showGate(message) {
+    stopPolling();
+    $('top').hidden = true; $('mainWrap').hidden = true; $('addbar').hidden = true; $('toolbar').hidden = true;
+    $('notice').textContent = '';
+    var nameIn = el('input', { id: 'g_name', type: 'text', value: state.name, autocomplete: 'name', placeholder: 'First and last name', maxlength: '60', enterkeyhint: 'next' });
+    var codeIn = el('input', { id: 'g_code', type: 'password', value: state.code, autocomplete: 'off', placeholder: 'Team code', maxlength: '80', enterkeyhint: 'go' });
+    var err = el('p', { class: 'err', hidden: !message, role: 'alert', text: message || '' });
+    var go = el('button', { class: 'primary', type: 'button', text: 'Open the list' });
+    async function submit() {
+      var n = nameIn.value.trim(), c = codeIn.value.trim();
+      if (!n || !c) { err.textContent = 'Enter your name and the team code.'; err.hidden = false; return; }
+      go.disabled = true; err.hidden = true;
+      var prev = state.code;
+      state.name = n; state.code = c;
+      try {
+        if (await codeIsValid()) {
+          store('punch.name', n); store('punch.code', c);
+          closeLayer();
+          start();
+          return;
+        }
+        state.code = prev;
+        err.textContent = 'That team code doesn’t match. Check it and try again.';
+      } catch (e) {
+        state.code = prev;
+        err.textContent = 'Can’t reach the server. Check your connection, and the setup in SETUP.md.';
+      }
+      err.hidden = false; go.disabled = false;
+    }
+    go.addEventListener('click', submit);
+    [nameIn, codeIn].forEach(function (i) { i.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); }); });
+    openLayer(el('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Sign in' },
+      el('h2', { text: 'Pre-punch list' }),
+      el('p', { class: 'lead', text: 'Your name goes on every item you add. Ask whoever set up the list for the team code.' }),
+      el('div', { class: 'field' }, el('label', { for: 'g_name', text: 'Your name' }), nameIn),
+      el('div', { class: 'field' }, el('label', { for: 'g_code', text: 'Team code' }), codeIn),
+      err,
+      el('div', { class: 'actions' }, go)
+    ), true, true);
+    (state.name ? codeIn : nameIn).focus();
+  }
+
+  /* ---------- layers ---------- */
+  function closeLayer() { $('layer').textContent = ''; document.body.classList.remove('locked'); }
+  function openLayer(sheet, center, sticky) {
+    var scrim = el('div', { class: 'scrim' + (center ? ' center' : ''), onclick: function (e) { if (e.target === scrim && !sticky) closeLayer(); } }, sheet);
+    $('layer').textContent = '';
+    $('layer').append(scrim);
+    document.body.classList.add('locked');
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('layer').querySelector('[aria-label="Sign in"]')) closeLayer(); });
+
+  /* ---------- polling ---------- */
+  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(function () { if (!document.hidden) refresh(); }, POLL_MS);
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && started) refresh(); });
+
+  async function refresh() {
+    try {
+      var rows = await api('items?select=id,area,trade,description,has_photo,status,added_by,added_at,status_by,status_at&order=added_at.desc&limit=1000');
+      items = rows || [];
+      loaded = true; loadError = false;
+      $('notice').textContent = '';
+      render();
+      loadThumbs();
+    } catch (e) {
+      if (e.status === 401 || e.status === 403) { showGate('The team code was rejected. Enter it again.'); return; }
+      if (!loaded) { loadError = true; render(); }
+      else if (!$('notice').firstChild) $('notice').append(el('div', { class: 'notice', text: 'Can’t reach the server right now. Showing the last list that loaded.' }));
+    }
+  }
+  async function loadThumbs() {
+    var need = items.filter(function (i) { return i.has_photo && !thumbs[i.id] && !thumbPending[i.id]; }).map(function (i) { return i.id; });
+    if (!need.length) return;
+    need.forEach(function (id) { thumbPending[id] = true; });
+    for (var k = 0; k < need.length; k += 25) {
+      var chunk = need.slice(k, k + 25);
+      try {
+        var rows = await api('items?select=id,thumb&id=in.(' + chunk.join(',') + ')');
+        (rows || []).forEach(function (r) { if (r.thumb) thumbs[r.id] = r.thumb; });
+      } catch (e) { /* try again on a later refresh */ }
+      chunk.forEach(function (id) { delete thumbPending[id]; });
+    }
+    render();
+  }
+  async function loadJob() {
+    try {
+      var rows = await api('meta?select=value&key=eq.job');
+      jobName = rows && rows[0] ? (rows[0].value || '') : '';
+      renderHeader();
+    } catch (e) {}
+  }
+
+  /* ---------- header, tabs, toolbar ---------- */
+  function renderHeader() {
+    $('jobBtn').textContent = jobName || 'Add job name';
+    $('whoBtn').textContent = 'Adding as ' + (state.name || 'unknown') + '. Change';
+  }
+  function renderTabs() {
+    var counts = { open: 0, recheck: 0, closed: 0 };
+    items.forEach(function (i) { counts[STATUS[i.status] ? i.status : 'open']++; });
+    var box = $('tabs');
+    box.textContent = '';
+    ORDER.forEach(function (s) {
+      box.append(el('button', {
+        class: 'tab', type: 'button', 'aria-pressed': String(tab === s), style: '--c:' + STATUS[s].color,
+        onclick: function () { tab = s; render(); }
+      }, el('span', { class: 'dot' }), el('span', { text: STATUS[s].short }), el('span', { class: 'n', text: String(counts[s]) })));
+    });
+  }
+  function buildToolbar() {
+    var tb = $('toolbar');
+    tb.textContent = '';
+    tb.append(el('select', { 'aria-label': 'Filter by trade', onchange: function (e) { tradeFilter = e.target.value; render(); } },
+      el('option', { value: '', text: 'All trades' }),
+      TRADES.map(function (t) { return el('option', { value: t, text: t }); })));
+    tb.append(el('button', { class: 'ghost', type: 'button', text: 'Download CSV', onclick: exportCsv }));
+    tb.hidden = false;
+  }
+
+  /* ---------- list ---------- */
+  function render() {
+    renderTabs();
+    var list = $('list');
+    list.textContent = '';
+    if (loadError) {
+      list.append(el('li', { class: 'empty' }, el('strong', { text: 'The list didn’t load' }), 'Check your connection and reload the page.'));
+      return;
+    }
+    if (!loaded) { list.append(el('li', { class: 'empty', text: 'Loading list…' })); return; }
+
+    var shown = items.filter(function (i) {
+      return (STATUS[i.status] ? i.status : 'open') === tab && (!tradeFilter || i.trade === tradeFilter);
+    });
+    if (!shown.length) {
+      if (tab === 'open' && !tradeFilter) {
+        list.append(el('li', { class: 'empty' }, el('strong', { text: 'Nothing open right now' }), 'When you spot something deficient on your walk, tap Add item.'));
+      } else {
+        list.append(el('li', { class: 'empty', text: 'Nothing here.' }));
+      }
+      return;
+    }
+    shown.forEach(function (i) {
+      var s = STATUS[i.status] ? i.status : 'open';
+      var body = el('span', { class: 'body' },
+        el('span', { class: 'area' + (i.area ? '' : ' none'), text: i.area || 'No area given' }),
+        el('span', { class: 'desc', text: i.description || '' }),
+        i.trade ? el('span', { class: 'tag', text: i.trade }) : null,
+        el('span', { class: 'meta', text: 'Added by ' + who(i.added_by) + ' ' + when(i.added_at) }),
+        (s !== 'open' && i.status_at) ? el('span', { class: 'meta', text: (s === 'closed' ? 'Closed by ' : 'Marked fixed by ') + who(i.status_by) + ' ' + when(i.status_at) }) : null
+      );
+      var card = el('button', { class: 'card', type: 'button', style: '--c:' + STATUS[s].color, onclick: function () { openSheet(i); } },
+        el('span', { class: 'bar' }), body);
+      if (i.has_photo) {
+        if (thumbs[i.id]) card.append(el('img', { class: 'thumb', src: thumbs[i.id], alt: 'Photo of the deficiency' }));
+        else card.append(el('span', { class: 'thumb wait', text: 'Photo' }));
+      }
+      list.append(el('li', null, card));
+    });
+  }
+
+  /* ---------- CSV ---------- */
+  function csvCell(v) { v = v == null ? '' : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function stamp(iso) {
+    if (!iso) return '';
+    var d = new Date(iso), p = function (n) { return String(n).padStart(2, '0'); };
+    if (isNaN(d)) return '';
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function exportCsv() {
+    if (!items.length) { toast('Nothing to download yet'); return; }
+    var rows = [['Area', 'Trade', 'Description', 'Status', 'Added by', 'Added', 'Status changed by', 'Status changed', 'Has photo']];
+    items.slice().reverse().forEach(function (i) {
+      var s = STATUS[i.status] ? i.status : 'open';
+      rows.push([i.area, i.trade, i.description, STATUS[s].label, i.added_by, stamp(i.added_at), i.status_by, stamp(i.status_at), i.has_photo ? 'Yes' : 'No']);
+    });
+    var csv = '\ufeff' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+    var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
+    var a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), download: 'pre-punch-list-' + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '.csv' });
+    document.body.append(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  /* ---------- photos ---------- */
+  function scaled(img, max, quality) {
+    var s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    var w = Math.max(1, Math.round(img.naturalWidth * s)), h = Math.max(1, Math.round(img.naturalHeight * s));
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(img, 0, 0, w, h);
+    return c.toDataURL('image/jpeg', quality);
+  }
+  function readPhoto(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        try { var out = { full: scaled(img, 1280, 0.72), thumb: scaled(img, 200, 0.6) }; URL.revokeObjectURL(url); resolve(out); }
+        catch (e) { URL.revokeObjectURL(url); reject(e); }
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('decode')); };
+      img.src = url;
+    });
+  }
+
+  /* ---------- sheets ---------- */
+  function openJobSheet() {
+    var input = el('input', { id: 'jobInput', type: 'text', value: jobName, maxlength: '80', placeholder: 'Job name', autocomplete: 'off', enterkeyhint: 'done' });
+    var err = el('p', { class: 'err', hidden: true });
+    var save = el('button', { class: 'primary', type: 'button', text: 'Save job name' });
+    save.addEventListener('click', async function () {
+      save.disabled = true;
+      try {
+        await api('meta?on_conflict=key', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { key: 'job', value: input.value.trim() } });
+        jobName = input.value.trim(); renderHeader(); closeLayer();
+      } catch (e) { err.textContent = errText(e); err.hidden = false; save.disabled = false; }
+    });
+    openLayer(el('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Job name' },
+      el('h2', { text: 'Job name' }),
+      el('div', { class: 'field' }, el('label', { for: 'jobInput', text: 'Shown at the top of the list' }), input),
+      err,
+      el('div', { class: 'actions' }, save, el('button', { class: 'quiet', type: 'button', text: 'Cancel', onclick: closeLayer }))
+    ));
+    input.focus();
+  }
+
+  function openSheet(item) {
+    var isNew = !item;
+    var curStatus = isNew ? 'open' : (STATUS[item.status] ? item.status : 'open');
+    var photo = { mode: (!isNew && item.has_photo) ? 'existing' : 'none', full: null, thumb: null, loading: false, failed: false };
+    var busy = false, working = false;
+    var mine = !isNew && (item.added_by || '').trim().toLowerCase() === state.name.trim().toLowerCase();
+
+    var areaList = el('datalist', { id: 'areaList' });
+    Array.from(new Set(items.map(function (i) { return (i.area || '').trim(); }).filter(Boolean))).sort().forEach(function (a) { areaList.append(el('option', { value: a })); });
+    var area = el('input', { id: 'f_area', type: 'text', list: 'areaList', placeholder: 'Room 104, north dock, level 2 corridor', autocomplete: 'off', maxlength: '120', enterkeyhint: 'next', value: isNew ? lastArea : (item.area || '') });
+    var trade = el('select', { id: 'f_trade' }, el('option', { value: '', text: 'Not sure' }), TRADES.map(function (t) { return el('option', { value: t, text: t }); }));
+    trade.value = isNew ? lastTrade : (item.trade || '');
+    var desc = el('textarea', { id: 'f_desc', maxlength: '1000', placeholder: 'What’s wrong, and where exactly?', rows: '3' });
+    desc.value = isNew ? '' : (item.description || '');
+
+    var photoBox = el('div');
+    var fileInput = el('input', { type: 'file', accept: 'image/*', class: 'vh', tabindex: '-1', 'aria-hidden': 'true' });
+    var err = el('p', { class: 'err', hidden: true, role: 'alert' });
+    var primary = el('button', { class: 'primary', type: 'button', text: isNew ? 'Add to list' : 'Save changes' });
+
+    function setErr(m) { err.textContent = m || ''; err.hidden = !m; }
+    function sync() { primary.disabled = busy || working || !desc.value.trim(); }
+
+    function drawPhoto() {
+      photoBox.textContent = '';
+      if (working) { photoBox.append(el('p', { class: 'meta', text: 'Preparing photo…' })); sync(); return; }
+      if (photo.mode === 'none' || photo.mode === 'removed') {
+        photoBox.append(el('button', { class: 'photo-add', type: 'button', onclick: function () { fileInput.click(); } }, svg(CAMERA), 'Add photo'));
+      } else if (photo.mode === 'existing' && !photo.full) {
+        photoBox.append(el('p', { class: 'meta', text: photo.failed ? 'Couldn’t load the photo.' : 'Loading photo…' }));
+        if (photo.failed) photoBox.append(el('button', { class: 'small', type: 'button', text: 'Try again', onclick: loadExisting }));
+      } else {
+        photoBox.append(el('div', { class: 'photo-view' },
+          el('img', { src: photo.full, alt: 'Photo of the deficiency' }),
+          el('div', { class: 'row' },
+            el('button', { class: 'small', type: 'button', text: 'Replace photo', onclick: function () { fileInput.click(); } }),
+            el('button', { class: 'small', type: 'button', text: 'Remove photo', onclick: function () { photo = { mode: 'removed', full: null, thumb: null }; drawPhotoRemoved(); } }))));
+      }
+      sync();
+    }
+    function drawPhotoRemoved() {
+      photoBox.textContent = '';
+      photoBox.append(el('button', { class: 'photo-add', type: 'button', onclick: function () { fileInput.click(); } }, svg(CAMERA), 'Add photo'));
+      sync();
+    }
+    async function loadExisting() {
+      photo.failed = false; drawPhoto();
+      try {
+        var rows = await api('photos?select=data&item_id=eq.' + item.id);
+        if (rows && rows[0] && rows[0].data) { photo.full = rows[0].data; photo.loading = false; }
+        else photo.failed = true;
+      } catch (e) { photo.failed = true; }
+      drawPhoto();
+    }
+
+    fileInput.addEventListener('change', async function () {
+      var f = fileInput.files && fileInput.files[0];
+      fileInput.value = '';
+      if (!f) return;
+      setErr(''); working = true; drawPhoto();
+      try {
+        var r = await readPhoto(f);
+        photo = { mode: 'new', full: r.full, thumb: r.thumb };
+      } catch (e) {
+        setErr('That photo format isn’t supported. Try a JPEG or PNG.');
+      }
+      working = false; drawPhoto();
+    });
+    desc.addEventListener('input', sync);
+
+    async function commit(newStatus) {
+      var d = desc.value.trim();
+      if (!d) { setErr('Add a short description.'); return; }
+      var a = area.value.trim(), t = trade.value;
+      busy = true; sync(); setErr('');
+      try {
+        if (isNew) {
+          var id = uuid();
+          await api('items', { method: 'POST', prefer: 'return=minimal', body: {
+            id: id, area: a, trade: t, description: d, added_by: state.name.trim(),
+            has_photo: photo.mode === 'new', thumb: photo.mode === 'new' ? photo.thumb : null
+          } });
+          if (photo.mode === 'new') {
+            try {
+              await api('photos?on_conflict=item_id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { item_id: id, data: photo.full } });
+              thumbs[id] = photo.thumb;
+            } catch (pe) {
+              await api('items?id=eq.' + id, { method: 'PATCH', prefer: 'return=minimal', body: { has_photo: false, thumb: null } }).catch(function () {});
+              toast('Item added, but the photo didn’t save');
+            }
+          }
+          lastArea = a; lastTrade = t; tab = 'open';
+          if (!$('toastHost').firstChild) toast('Added to the list');
+        } else {
+          var patch = { area: a, trade: t, description: d };
+          if (photo.mode === 'new') {
+            await api('photos?on_conflict=item_id', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { item_id: item.id, data: photo.full } });
+            patch.has_photo = true; patch.thumb = photo.thumb; thumbs[item.id] = photo.thumb;
+          } else if (photo.mode === 'removed') {
+            await api('photos?item_id=eq.' + item.id, { method: 'DELETE', prefer: 'return=minimal' });
+            patch.has_photo = false; patch.thumb = null; delete thumbs[item.id];
+          }
+          if (newStatus && newStatus !== curStatus) {
+            patch.status = newStatus; patch.status_by = state.name.trim(); patch.status_at = new Date().toISOString();
+            tab = newStatus;
+          }
+          await api('items?id=eq.' + item.id, { method: 'PATCH', prefer: 'return=minimal', body: patch });
+          toast(newStatus && newStatus !== curStatus ? 'Marked ' + STATUS[newStatus].short.toLowerCase() : 'Saved');
+        }
+        closeLayer();
+        await refresh();
+      } catch (e) {
+        busy = false; sync(); setErr(errText(e));
+      }
+    }
+    primary.addEventListener('click', function () { commit(null); });
+
+    var kids = [
+      el('h2', { text: isNew ? 'Add item' : 'Item details' }),
+      areaList,
+      el('div', { class: 'field' }, el('label', { for: 'f_area', text: 'Area' }), area),
+      el('div', { class: 'field' }, el('label', { for: 'f_trade', text: 'Trade' }), trade),
+      el('div', { class: 'field' }, el('label', { for: 'f_desc', text: 'Deficiency' }), desc),
+      el('div', { class: 'field' }, el('span', { class: 'lbl', text: 'Photo' }), photoBox, fileInput)
+    ];
+
+    if (!isNew) {
+      var statusSet = el('div', { class: 'status-set' });
+      ORDER.forEach(function (s) {
+        statusSet.append(el('button', { type: 'button', 'aria-pressed': String(s === curStatus), style: '--c:' + STATUS[s].color, text: STATUS[s].label,
+          onclick: function () { if (s !== curStatus) commit(s); } }));
+      });
+      kids.push(el('div', { class: 'field' }, el('span', { class: 'lbl', text: 'Status' }), statusSet));
+      var hist = el('div', { class: 'history' }, el('span', { text: 'Added by ' + who(item.added_by) + ' ' + when(item.added_at) }));
+      if (curStatus !== 'open' && item.status_at) hist.append(el('span', { text: (curStatus === 'closed' ? 'Closed by ' : 'Marked fixed by ') + who(item.status_by) + ' ' + when(item.status_at) }));
+      kids.push(hist);
+    }
+
+    kids.push(err);
+    var actions = el('div', { class: 'actions' }, primary, el('button', { class: 'quiet', type: 'button', text: 'Cancel', onclick: closeLayer }));
+    if (!isNew && mine) {
+      var armed = false;
+      var del = el('button', { class: 'quiet danger', type: 'button', text: 'Delete item' });
+      del.addEventListener('click', async function () {
+        if (!armed) { armed = true; del.textContent = 'Tap again to delete'; return; }
+        del.disabled = true;
+        try {
+          await api('items?id=eq.' + item.id, { method: 'DELETE', prefer: 'return=minimal' });
+          closeLayer(); toast('Item deleted'); refresh();
+        } catch (e) { del.disabled = false; setErr(errText(e)); }
+      });
+      actions.append(del);
+    }
+    kids.push(actions);
+
+    openLayer(el('div', { class: 'sheet', role: 'dialog', 'aria-label': isNew ? 'Add item' : 'Item details' }, kids));
+    drawPhoto();
+    sync();
+    if (photo.mode === 'existing') loadExisting();
+    if (isNew) desc.focus();
+  }
+
+  /* ---------- start ---------- */
+  function start() {
+    started = true;
+    $('top').hidden = false; $('mainWrap').hidden = false; $('addbar').hidden = false;
+    buildToolbar();
+    renderHeader();
+    render();
+    loadJob();
+    refresh();
+    startPolling();
+  }
+
+  $('addBtn').addEventListener('click', function () { openSheet(null); });
+  $('jobBtn').addEventListener('click', openJobSheet);
+  $('whoBtn').addEventListener('click', function () { showGate(''); });
+
+  (async function init() {
+    if (!configured()) {
+      $('notice').append(el('div', { class: 'notice', text: 'This page isn’t connected to a database yet. Open index.html, paste your Supabase URL and key at the top of the script, and upload it again. SETUP.md has the steps.' }));
+      return;
+    }
+    state.name = recall('punch.name'); state.code = recall('punch.code');
+    if (!state.name || !state.code) { showGate(''); return; }
+    try {
+      if (await codeIsValid()) { start(); return; }
+      showGate('The team code was rejected. Enter it again.');
+    } catch (e) {
+      // Offline or server unreachable: open anyway and let refresh() report it.
+      start();
+    }
+  })();
+})();
+</script>
+</body>
+</html>
