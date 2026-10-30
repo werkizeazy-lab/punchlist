@@ -1,66 +1,867 @@
--- Constraint log: database tables for Supabase
--- Run this in Supabase: SQL Editor > New query > paste > Run.
---
--- This ADDS two tables to the project you already set up. It does not touch
--- your team code, and your old pre-punch items stay where they are (unused).
--- It is safe to run more than once.
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Constraint Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #E3E6E4;
+    --surface: #FFFFFF;
+    --field: #F2F4F3;
+    --ink: #16202A;
+    --muted: #566370;
+    --rule: #C2C8C5;
+    --btn: #16202A;
+    --btn-ink: #FFFFFF;
+    --open: #D63F17;
+    --progress: #0D7B86;
+    --done: #3A7F51;
+    --crit: #B3261E;
+    --amber: #B7740A;
+    --gray: #8A949B;
+    --danger: #B3261E;
+    --scrim: rgba(10, 16, 22, 0.5);
+    --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    --body: "Barlow", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #13181C; --surface: #1E252B; --field: #2A333A; --ink: #EDF0F1; --muted: #9AA7B1;
+      --rule: #38434B; --btn: #EDF0F1; --btn-ink: #13181C;
+      --open: #FF7048; --progress: #3FC3CF; --done: #62B982;
+      --crit: #FF8A80; --amber: #F2B134; --gray: #74808A; --danger: #FF8A80;
+      --scrim: rgba(0, 0, 0, 0.62); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #13181C; --surface: #1E252B; --field: #2A333A; --ink: #EDF0F1; --muted: #9AA7B1;
+    --rule: #38434B; --btn: #EDF0F1; --btn-ink: #13181C;
+    --open: #FF7048; --progress: #3FC3CF; --done: #62B982;
+    --crit: #FF8A80; --amber: #F2B134; --gray: #74808A; --danger: #FF8A80;
+    --scrim: rgba(0, 0, 0, 0.62); color-scheme: dark;
+  }
 
--- Make sure the team code check from setup.sql exists --------------------
-do $$
-begin
-  if to_regproc('public.team_ok()') is null then
-    raise exception 'Run setup.sql first (it creates the team code check), then run this file.';
-  end if;
-end
-$$;
+  html { height: 100%; }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font: 400 16px/1.4 var(--body);
+    -webkit-text-size-adjust: 100%;
+  }
+  body.locked { overflow: hidden; }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+  .wrap { max-width: 640px; margin: 0 auto; }
 
--- 1) Tables ---------------------------------------------------------------
-create table if not exists public.site_constraints (
-  id           uuid primary key default gen_random_uuid(),
-  title        text not null,
-  details      text not null default '',
-  category     text not null default '',
-  area         text not null default '',
-  priority     text not null default 'normal' check (priority in ('critical', 'high', 'normal')),
-  due_date     date,
-  status       text not null default 'open' check (status in ('open', 'in_progress', 'resolved')),
-  tracker      text not null default '',
-  waiting_on   text not null default '',
-  ref          text not null default '',
-  impact_days  integer,
-  added_by     text not null default '',
-  added_at     timestamptz not null default now(),
-  status_by    text,
-  status_at    timestamptz,
-  resolved_at  timestamptz,
-  last_note    text,
-  last_note_by text,
-  last_note_at timestamptz
-);
+  .top {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--bg);
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 12px;
+    border-bottom: 1px solid var(--rule);
+  }
+  h1 { margin: 0; font: 700 38px/1 var(--display); letter-spacing: 0.01em; }
+  .whoRow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin: 4px 0 12px; }
+  .linkbtn {
+    padding: 6px 0;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font-size: 16px;
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 4px;
+  }
+  .tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .tab {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    min-height: 48px; padding: 0 4px;
+    background: transparent;
+    border: 2px solid var(--ink);
+    border-radius: 8px;
+    font: 600 18px/1 var(--display);
+    letter-spacing: 0.02em;
+  }
+  .tab .dot { width: 11px; height: 11px; border-radius: 2px; background: var(--c); flex: none; }
+  .tab[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+  .tab .n { font-variant-numeric: tabular-nums; }
 
-create table if not exists public.site_constraint_updates (
-  id            uuid primary key default gen_random_uuid(),
-  constraint_id uuid not null references public.site_constraints (id) on delete cascade,
-  note          text not null,
-  by            text not null default '',
-  kind          text not null default 'note',
-  at            timestamptz not null default now()
-);
+  .toolbar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 14px 16px 4px; }
+  .toolbar select { min-width: 0; min-height: 44px; padding: 0 10px; background: var(--surface); border: 1px solid var(--rule); border-radius: 8px; }
+  .ghost { min-height: 44px; padding: 0 14px; background: transparent; border: 1px solid var(--rule); border-radius: 8px; font-weight: 600; }
 
-create index if not exists site_constraint_updates_cid_idx
-  on public.site_constraint_updates (constraint_id, at);
+  .summary { margin: 4px 0 10px; font-weight: 600; font-size: 15px; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .summary .late { color: var(--crit); }
+  .summary .soon { color: var(--amber); }
 
--- 2) Lock the tables so only requests with the right team code get in ------
-alter table public.site_constraints        enable row level security;
-alter table public.site_constraint_updates enable row level security;
+  main { padding: 10px 16px calc(120px + env(safe-area-inset-bottom, 0px)); }
+  .list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .card {
+    display: flex; width: 100%; text-align: left; padding: 0;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .card .bar { width: 8px; flex: none; background: var(--c); }
+  .card .body { flex: 1; min-width: 0; padding: 12px 14px; display: grid; gap: 6px; }
+  .title { font: 700 24px/1.05 var(--display); letter-spacing: 0.01em; overflow-wrap: anywhere; }
+  .details { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .meta { color: var(--muted); font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { padding: 2px 8px; border: 1px solid var(--rule); border-radius: 4px; font-size: 13px; font-weight: 600; }
+  .tag.crit { border-color: var(--crit); color: var(--crit); }
+  .tag.high { border-color: var(--amber); color: var(--amber); }
+  .due { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; font-weight: 600; }
+  .due .flag { font-weight: 700; }
+  .due .flag.late { color: var(--crit); }
+  .due .flag.soon { color: var(--amber); }
+  .latest { padding: 8px 10px; background: var(--field); border-radius: 6px; font-size: 14px; display: grid; gap: 2px; }
+  .latest span.t { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .empty { padding: 40px 8px; text-align: center; color: var(--muted); }
+  .empty strong { display: block; margin-bottom: 4px; font: 700 24px/1.1 var(--display); color: var(--ink); }
+  .notice { margin: 12px 16px 0; padding: 10px 12px; border: 1px solid var(--rule); border-radius: 8px; background: var(--surface); color: var(--muted); font-size: 15px; }
 
-drop policy if exists "team code" on public.site_constraints;
-drop policy if exists "team code" on public.site_constraint_updates;
+  .addbar {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 6;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg);
+    border-top: 1px solid var(--rule);
+  }
+  .primary {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: 100%; min-height: 56px;
+    background: var(--btn); color: var(--btn-ink);
+    border: 0; border-radius: 10px;
+    font: 700 24px/1 var(--display); letter-spacing: 0.03em;
+  }
+  .addbar .primary { max-width: 640px; margin: 0 auto; }
+  .primary[disabled] { opacity: 0.45; cursor: default; }
+  .primary svg { width: 22px; height: 22px; }
 
-create policy "team code" on public.site_constraints
-  for all to anon using (public.team_ok()) with check (public.team_ok());
-create policy "team code" on public.site_constraint_updates
-  for all to anon using (public.team_ok()) with check (public.team_ok());
+  .scrim { position: fixed; inset: 0; z-index: 20; display: flex; align-items: flex-end; justify-content: center; background: var(--scrim); }
+  .scrim.center { align-items: center; padding: 16px; }
+  .sheet {
+    width: 100%; max-width: 640px;
+    max-height: 94vh; max-height: 94dvh;
+    overflow-y: auto;
+    padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    background: var(--surface);
+    border-radius: 14px 14px 0 0;
+    animation: rise 0.18s ease-out;
+  }
+  .center .sheet { border-radius: 14px; }
+  @keyframes rise { from { transform: translateY(24px); opacity: 0.6; } to { transform: none; opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .sheet { animation: none; } }
+  .sheet h2 { margin: 0 0 14px; font: 700 28px/1 var(--display); }
+  .sheet h3 { margin: 18px 0 10px; font: 700 22px/1 var(--display); }
+  .sheet p.lead { margin: 0 0 14px; color: var(--muted); }
+  .field { display: grid; gap: 6px; margin-bottom: 14px; }
+  .field > label, .field > .lbl { font-weight: 600; font-size: 15px; }
+  .field .hint { color: var(--muted); font-size: 13px; font-weight: 400; }
+  .field input, .field select, .field textarea {
+    width: 100%; min-height: 50px; padding: 10px 12px;
+    background: var(--field); border: 1px solid var(--rule); border-radius: 8px; font-size: 16px;
+  }
+  .field textarea { min-height: 84px; resize: vertical; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .small { min-height: 44px; padding: 0 12px; background: transparent; border: 1px solid var(--rule); border-radius: 8px; font-weight: 600; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .seg button {
+    display: grid; place-items: center; gap: 6px;
+    min-height: 62px; padding: 8px 4px;
+    background: transparent; border: 2px solid var(--rule); border-radius: 8px;
+    font: 600 17px/1.05 var(--display); text-align: center;
+  }
+  .seg button::before { content: ""; width: 24px; height: 6px; border-radius: 2px; background: var(--c); }
+  .seg button[aria-pressed="true"] { border-color: var(--ink); background: var(--field); }
+  .history { margin: 0 0 6px; color: var(--muted); font-size: 14px; display: grid; gap: 2px; }
+  .feed { display: grid; gap: 8px; margin-bottom: 12px; }
+  .upd { padding: 10px 12px; background: var(--field); border-radius: 8px; display: grid; gap: 2px; }
+  .upd .txt { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .upd.status .txt { color: var(--muted); font-style: italic; }
+  .err { margin: 0 0 12px; color: var(--danger); font-weight: 600; }
+  .actions { display: grid; gap: 8px; margin-top: 6px; }
+  .quiet { min-height: 48px; background: transparent; border: 0; font-weight: 600; color: var(--muted); }
+  .quiet.danger { color: var(--danger); }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(92px + env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%); z-index: 30;
+    padding: 10px 16px; background: var(--btn); color: var(--btn-ink);
+    border-radius: 8px; font-weight: 600; max-width: calc(100% - 32px);
+  }
+</style>
+</head>
+<body>
 
-grant usage on schema public to anon;
-grant select, insert, update, delete on public.site_constraints, public.site_constraint_updates to anon;
+<header class="top" id="top" hidden>
+  <div class="wrap">
+    <h1>Constraint Log</h1>
+    <div class="whoRow">
+      <button class="linkbtn" id="jobBtn" type="button"></button>
+      <button class="linkbtn" id="whoBtn" type="button"></button>
+    </div>
+    <div class="tabs" role="group" aria-label="Filter by status" id="tabs"></div>
+  </div>
+</header>
+
+<div class="wrap" id="notice"></div>
+<div class="wrap toolbar" id="toolbar" hidden></div>
+<main class="wrap" id="mainWrap" hidden>
+  <div class="summary" id="summary"></div>
+  <ul class="list" id="list"></ul>
+</main>
+
+<div class="addbar" id="addbar" hidden>
+  <button class="primary" id="addBtn" type="button">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg>
+    Add constraint
+  </button>
+</div>
+
+<div id="layer"></div>
+<div id="toastHost" aria-live="polite"></div>
+
+<script>
+/* =====================================================================
+   SETTINGS: paste your two Supabase values here (see UPDATE.md, step 2).
+   These are meant to be public. The team code protects the data.
+   ===================================================================== */
+var SUPABASE_URL = 'https://ncvlztfndmgkpxqgkghe.supabase.co/rest/v1/';
+var SUPABASE_KEY = 'sb_publishable_vRyAYj0hhWT5p5WCFqF5Ng_Bvgqr5ag';
+
+(function () {
+  'use strict';
+
+  var CATEGORIES = ['Design / RFI', 'Submittal', 'Procurement / long-lead', 'Labor / manpower', 'Equipment',
+    'Permit / inspection', 'Utilities', 'Site access / logistics', 'Predecessor work', 'Owner decision',
+    'Weather', 'Safety', 'Other'];
+  var STATUS = {
+    open: { label: 'Open', short: 'Open', color: 'var(--open)' },
+    in_progress: { label: 'In progress', short: 'In progress', color: 'var(--progress)' },
+    resolved: { label: 'Resolved', short: 'Resolved', color: 'var(--done)' }
+  };
+  var ORDER = ['open', 'in_progress', 'resolved'];
+  var PRIORITY = {
+    critical: { label: 'Critical', color: 'var(--crit)', rank: 0 },
+    high: { label: 'High', color: 'var(--amber)', rank: 1 },
+    normal: { label: 'Normal', color: 'var(--gray)', rank: 2 }
+  };
+  var PORDER = ['critical', 'high', 'normal'];
+  var POLL_MS = 15000;
+  var SOON_DAYS = 3;
+
+  var state = { name: '', code: '' };
+  var items = [], loaded = false, loadError = false, jobName = '';
+  var tab = 'open', trackerFilter = '', categoryFilter = '', showFilter = '';
+  var lastCategory = '';
+  var pollTimer = null, started = false, toolbarSig = '';
+
+  var $ = function (id) { return document.getElementById(id); };
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+
+  function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} }
+  function recall(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
+
+  function el(tag, props) {
+    var n = document.createElement(tag);
+    var p = props || {};
+    Object.keys(p).forEach(function (k) {
+      var v = p[k];
+      if (k === 'class') n.className = v;
+      else if (k === 'text') n.textContent = v;
+      else if (k === 'style') n.style.cssText = v;
+      else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), v);
+      else if (v === true) n.setAttribute(k, '');
+      else if (v !== false && v != null) n.setAttribute(k, v);
+    });
+    for (var i = 2; i < arguments.length; i++) {
+      var c = arguments[i];
+      if (Array.isArray(c)) c.forEach(function (x) { if (x != null && x !== false) n.append(x); });
+      else if (c != null && c !== false) n.append(c);
+    }
+    return n;
+  }
+
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16);
+    });
+  }
+
+  /* ---------- dates ---------- */
+  function when(iso) {
+    if (!iso) return '';
+    var d = new Date(iso), now = new Date();
+    if (isNaN(d)) return '';
+    var t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    var key = function (x) { return x.getFullYear() * 10000 + x.getMonth() * 100 + x.getDate(); };
+    var y = new Date(now); y.setDate(now.getDate() - 1);
+    if (key(d) === key(now)) return 'today at ' + t;
+    if (key(d) === key(y)) return 'yesterday at ' + t;
+    var o = { month: 'short', day: 'numeric' };
+    if (d.getFullYear() !== now.getFullYear()) o.year = 'numeric';
+    return d.toLocaleDateString([], o) + ' at ' + t;
+  }
+  function todayStr() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function utcOf(ymd) { var a = ymd.split('-'); return Date.UTC(+a[0], +a[1] - 1, +a[2]); }
+  function daysFromToday(ymd) { return Math.round((utcOf(ymd) - utcOf(todayStr())) / 86400000); }
+  function fmtDate(ymd) {
+    var a = ymd.split('-');
+    var d = new Date(+a[0], +a[1] - 1, +a[2]);
+    var o = { weekday: 'short', month: 'short', day: 'numeric' };
+    if (d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
+    return d.toLocaleDateString([], o);
+  }
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function dueInfo(c) {
+    if (!c.due_date) return null;
+    var out = { text: 'Due ' + fmtDate(c.due_date), flag: '', cls: '' };
+    if (c.status === 'resolved') return out;
+    var d = daysFromToday(c.due_date);
+    if (d < 0) { out.flag = plural(-d, 'day') + ' overdue'; out.cls = 'late'; }
+    else if (d === 0) { out.flag = 'Due today'; out.cls = 'soon'; }
+    else if (d === 1) { out.flag = 'Due tomorrow'; out.cls = 'soon'; }
+    else if (d <= SOON_DAYS) { out.flag = 'In ' + plural(d, 'day'); out.cls = 'soon'; }
+    return out;
+  }
+  function isOverdue(c) { return c.status !== 'resolved' && c.due_date && daysFromToday(c.due_date) < 0; }
+  function isDueWeek(c) { if (c.status === 'resolved' || !c.due_date) return false; var d = daysFromToday(c.due_date); return d >= 0 && d <= 7; }
+
+  function who(n) {
+    n = (n || '').trim();
+    if (!n) return 'someone';
+    return n.toLowerCase() === state.name.trim().toLowerCase() ? 'you' : n;
+  }
+  function toast(msg) {
+    var host = $('toastHost');
+    host.textContent = '';
+    var t = el('div', { class: 'toast', text: msg });
+    host.append(t);
+    setTimeout(function () { if (t.parentNode) t.remove(); }, 2200);
+  }
+
+  /* ---------- database calls (plain REST, no library) ---------- */
+  async function api(path, opts) {
+    opts = opts || {};
+    var headers = { 'apikey': SUPABASE_KEY, 'x-team-code': state.code };
+    if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+    if (opts.prefer) headers['Prefer'] = opts.prefer;
+    var res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body === undefined ? undefined : JSON.stringify(opts.body)
+    });
+    if (!res.ok) {
+      var e = new Error('HTTP ' + res.status);
+      e.status = res.status;
+      throw e;
+    }
+    var text = await res.text();
+    return text ? JSON.parse(text) : null;
+  }
+  async function codeIsValid() {
+    var r = await api('rpc/team_ok', { method: 'POST', body: {} });
+    return r === true;
+  }
+  function errText(e) {
+    if (e && (e.status === 401 || e.status === 403)) return 'The team code was rejected. Tap your name at the top to enter it again.';
+    if (e && e.status === 404) return 'The database tables are missing. Run constraints.sql in Supabase (see UPDATE.md).';
+    return 'Couldn’t save. Check your connection and try again.';
+  }
+
+  /* ---------- gate (name + team code) ---------- */
+  function configured() {
+    return SUPABASE_URL.indexOf('YOUR-PROJECT') === -1 && SUPABASE_KEY.indexOf('YOUR-') === -1;
+  }
+  function showGate(message) {
+    stopPolling();
+    $('top').hidden = true; $('mainWrap').hidden = true; $('addbar').hidden = true; $('toolbar').hidden = true;
+    $('notice').textContent = '';
+    var nameIn = el('input', { id: 'g_name', type: 'text', value: state.name, autocomplete: 'name', placeholder: 'First and last name', maxlength: '60', enterkeyhint: 'next' });
+    var codeIn = el('input', { id: 'g_code', type: 'password', value: state.code, autocomplete: 'off', placeholder: 'Team code', maxlength: '80', enterkeyhint: 'go' });
+    var err = el('p', { class: 'err', hidden: !message, role: 'alert', text: message || '' });
+    var go = el('button', { class: 'primary', type: 'button', text: 'Open the log' });
+    async function submit() {
+      var n = nameIn.value.trim(), c = codeIn.value.trim();
+      if (!n || !c) { err.textContent = 'Enter your name and the team code.'; err.hidden = false; return; }
+      go.disabled = true; err.hidden = true;
+      var prev = state.code;
+      state.name = n; state.code = c;
+      try {
+        if (await codeIsValid()) {
+          store('punch.name', n); store('punch.code', c);
+          closeLayer();
+          start();
+          return;
+        }
+        state.code = prev;
+        err.textContent = 'That team code doesn’t match. Check it and try again.';
+      } catch (e) {
+        state.code = prev;
+        err.textContent = 'Can’t reach the server. Check your connection and the Supabase settings in the page.';
+      }
+      err.hidden = false; go.disabled = false;
+    }
+    go.addEventListener('click', submit);
+    [nameIn, codeIn].forEach(function (i) { i.addEventListener('keydown', function (e) { if (e.key === 'Enter') submit(); }); });
+    openLayer(el('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Sign in' },
+      el('h2', { text: 'Constraint Log' }),
+      el('p', { class: 'lead', text: 'Your name goes on every constraint and update you add. Ask whoever set up the log for the team code.' }),
+      el('div', { class: 'field' }, el('label', { for: 'g_name', text: 'Your name' }), nameIn),
+      el('div', { class: 'field' }, el('label', { for: 'g_code', text: 'Team code' }), codeIn),
+      err,
+      el('div', { class: 'actions' }, go)
+    ), true, true);
+    (state.name ? codeIn : nameIn).focus();
+  }
+
+  /* ---------- layers ---------- */
+  function closeLayer() { $('layer').textContent = ''; document.body.classList.remove('locked'); }
+  function openLayer(sheet, center, sticky) {
+    var scrim = el('div', { class: 'scrim' + (center ? ' center' : ''), onclick: function (e) { if (e.target === scrim && !sticky) closeLayer(); } }, sheet);
+    $('layer').textContent = '';
+    $('layer').append(scrim);
+    document.body.classList.add('locked');
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !$('layer').querySelector('[aria-label="Sign in"]')) closeLayer(); });
+
+  /* ---------- polling ---------- */
+  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(function () { if (!document.hidden) refresh(); }, POLL_MS);
+  }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && started) refresh(); });
+
+  async function refresh() {
+    try {
+      var rows = await api('site_constraints?select=*&order=added_at.desc&limit=2000');
+      items = rows || [];
+      loaded = true; loadError = false;
+      $('notice').textContent = '';
+      render();
+    } catch (e) {
+      if (e.status === 401 || e.status === 403) { showGate('The team code was rejected. Enter it again.'); return; }
+      if (e.status === 404) { $('notice').textContent = ''; $('notice').append(el('div', { class: 'notice', text: errText(e) })); loaded = true; render(); return; }
+      if (!loaded) { loadError = true; render(); }
+      else if (!$('notice').firstChild) $('notice').append(el('div', { class: 'notice', text: 'Can’t reach the server right now. Showing the last log that loaded.' }));
+    }
+  }
+  async function loadJob() {
+    try {
+      var rows = await api('meta?select=value&key=eq.job');
+      jobName = rows && rows[0] ? (rows[0].value || '') : '';
+      renderHeader();
+    } catch (e) {}
+  }
+
+  /* ---------- header, tabs, toolbar ---------- */
+  function renderHeader() {
+    $('jobBtn').textContent = jobName || 'Add job name';
+    $('whoBtn').textContent = 'Adding as ' + (state.name || 'unknown') + '. Change';
+  }
+  function renderTabs() {
+    var counts = { open: 0, in_progress: 0, resolved: 0 };
+    items.forEach(function (i) { counts[STATUS[i.status] ? i.status : 'open']++; });
+    var box = $('tabs');
+    box.textContent = '';
+    ORDER.forEach(function (s) {
+      box.append(el('button', {
+        class: 'tab', type: 'button', 'aria-pressed': String(tab === s), style: '--c:' + STATUS[s].color,
+        onclick: function () { tab = s; render(); }
+      }, el('span', { class: 'dot' }), el('span', { text: STATUS[s].short }), el('span', { class: 'n', text: String(counts[s]) })));
+    });
+  }
+  function trackerNames() {
+    var set = {};
+    items.forEach(function (i) { var t = (i.tracker || '').trim(); if (t) set[t] = true; });
+    return Object.keys(set).sort(function (a, b) { return a.localeCompare(b); });
+  }
+  function renderToolbar() {
+    var names = trackerNames();
+    var sig = names.join('|');
+    var tb = $('toolbar');
+    if (sig === toolbarSig && tb.firstChild) return;
+    toolbarSig = sig;
+    if (trackerFilter && names.indexOf(trackerFilter) === -1) trackerFilter = '';
+    tb.textContent = '';
+    var trk = el('select', { 'aria-label': 'Filter by who is tracking', onchange: function (e) { trackerFilter = e.target.value; render(); } },
+      el('option', { value: '', text: 'Everyone tracking' }),
+      names.map(function (n) { return el('option', { value: n, text: n }); }));
+    trk.value = trackerFilter;
+    var cat = el('select', { 'aria-label': 'Filter by category', onchange: function (e) { categoryFilter = e.target.value; render(); } },
+      el('option', { value: '', text: 'All categories' }),
+      CATEGORIES.map(function (c) { return el('option', { value: c, text: c }); }));
+    cat.value = categoryFilter;
+    var show = el('select', { 'aria-label': 'Filter by due date', onchange: function (e) { showFilter = e.target.value; render(); } },
+      el('option', { value: '', text: 'Any due date' }),
+      el('option', { value: 'overdue', text: 'Overdue only' }),
+      el('option', { value: 'week', text: 'Due in the next 7 days' }),
+      el('option', { value: 'nodate', text: 'No due date' }));
+    show.value = showFilter;
+    tb.append(trk, cat, show, el('button', { class: 'ghost', type: 'button', text: 'Download CSV', onclick: exportCsv }));
+    tb.hidden = false;
+  }
+
+  /* ---------- list ---------- */
+  function sortActive(a, b) {
+    var ad = a.due_date || '9999-12-31', bd = b.due_date || '9999-12-31';
+    if (ad !== bd) return ad < bd ? -1 : 1;
+    var pa = (PRIORITY[a.priority] || PRIORITY.normal).rank, pb = (PRIORITY[b.priority] || PRIORITY.normal).rank;
+    if (pa !== pb) return pa - pb;
+    return (b.added_at || '') < (a.added_at || '') ? -1 : 1;
+  }
+  function sortResolved(a, b) { return (b.resolved_at || b.added_at || '') < (a.resolved_at || a.added_at || '') ? -1 : 1; }
+
+  function render() {
+    renderTabs();
+    renderToolbar();
+    var list = $('list'), summary = $('summary');
+    list.textContent = ''; summary.textContent = '';
+
+    if (loadError) {
+      list.append(el('li', { class: 'empty' }, el('strong', { text: 'The log didn’t load' }), 'Check your connection and reload the page.'));
+      return;
+    }
+    if (!loaded) { list.append(el('li', { class: 'empty', text: 'Loading log…' })); return; }
+
+    var active = items.filter(function (i) { return i.status !== 'resolved'; });
+    var late = active.filter(isOverdue).length, week = active.filter(isDueWeek).length;
+    if (late) summary.append(el('span', { class: 'late', text: late + ' overdue' }));
+    if (week) summary.append(el('span', { class: 'soon', text: week + ' due in the next 7 days' }));
+
+    var shown = items.filter(function (i) {
+      var s = STATUS[i.status] ? i.status : 'open';
+      if (s !== tab) return false;
+      if (trackerFilter && (i.tracker || '').trim() !== trackerFilter) return false;
+      if (categoryFilter && i.category !== categoryFilter) return false;
+      if (showFilter === 'overdue' && !isOverdue(i)) return false;
+      if (showFilter === 'week' && !isDueWeek(i)) return false;
+      if (showFilter === 'nodate' && i.due_date) return false;
+      return true;
+    });
+    shown.sort(tab === 'resolved' ? sortResolved : sortActive);
+
+    if (!shown.length) {
+      var filtered = trackerFilter || categoryFilter || showFilter;
+      if (!filtered && tab === 'open' && !items.length) {
+        list.append(el('li', { class: 'empty' }, el('strong', { text: 'No constraints logged yet' }), 'Tap Add constraint to log the first one.'));
+      } else {
+        list.append(el('li', { class: 'empty', text: 'Nothing here.' }));
+      }
+      return;
+    }
+
+    shown.forEach(function (c) {
+      var resolved = c.status === 'resolved';
+      var pr = PRIORITY[c.priority] || PRIORITY.normal;
+      var barColor = resolved ? 'var(--done)' : pr.color;
+      var di = dueInfo(c);
+
+      var tags = el('span', { class: 'tags' });
+      if (!resolved && c.priority !== 'normal') tags.append(el('span', { class: 'tag ' + (c.priority === 'critical' ? 'crit' : 'high'), text: pr.label }));
+      if (c.category) tags.append(el('span', { class: 'tag', text: c.category }));
+      if (c.ref) tags.append(el('span', { class: 'tag', text: c.ref }));
+
+      var dueEl = null;
+      if (di) {
+        dueEl = el('span', { class: 'due' }, el('span', { text: di.text }), di.flag ? el('span', { class: 'flag ' + di.cls, text: di.flag }) : null);
+      }
+
+      var latest = null;
+      if (c.last_note) {
+        latest = el('span', { class: 'latest' },
+          el('span', { class: 'meta', text: 'Latest update from ' + who(c.last_note_by) + ' ' + when(c.last_note_at) }),
+          el('span', { class: 't', text: c.last_note }));
+      }
+
+      var body = el('span', { class: 'body' },
+        el('span', { class: 'title', text: c.title }),
+        c.details ? el('span', { class: 'details', text: c.details }) : null,
+        tags.firstChild ? tags : null,
+        dueEl,
+        el('span', { class: 'meta' }, el('b', { text: 'Tracking: ' }), c.tracker || 'Nobody assigned'),
+        c.waiting_on ? el('span', { class: 'meta' }, el('b', { text: 'Waiting on: ' }), c.waiting_on) : null,
+        c.area ? el('span', { class: 'meta' }, el('b', { text: 'Area or activity: ' }), c.area) : null,
+        (c.impact_days != null) ? el('span', { class: 'meta' }, el('b', { text: 'Schedule impact: ' }), plural(c.impact_days, 'day')) : null,
+        latest,
+        el('span', { class: 'meta', text: 'Logged by ' + who(c.added_by) + ' ' + when(c.added_at) }),
+        resolved && c.resolved_at ? el('span', { class: 'meta', text: 'Resolved ' + when(c.resolved_at) }) : null
+      );
+      list.append(el('li', null,
+        el('button', { class: 'card', type: 'button', style: '--c:' + barColor, onclick: function () { openSheet(c); } }, el('span', { class: 'bar' }), body)));
+    });
+  }
+
+  /* ---------- CSV ---------- */
+  function csvCell(v) { v = v == null ? '' : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function stamp(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  }
+  function exportCsv() {
+    if (!items.length) { toast('Nothing to download yet'); return; }
+    var rows = [['Constraint', 'Details', 'Category', 'Area or activity', 'Priority', 'Due date', 'Status', 'Tracking', 'Waiting on', 'Reference', 'Schedule impact (days)', 'Latest update', 'Logged by', 'Logged', 'Resolved']];
+    items.slice().sort(sortActive).forEach(function (c) {
+      rows.push([c.title, c.details, c.category, c.area, (PRIORITY[c.priority] || PRIORITY.normal).label, c.due_date || '',
+        (STATUS[c.status] || STATUS.open).label, c.tracker, c.waiting_on, c.ref, c.impact_days == null ? '' : c.impact_days,
+        c.last_note || '', c.added_by, stamp(c.added_at), stamp(c.resolved_at)]);
+    });
+    var csv = '\ufeff' + rows.map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+    var d = new Date();
+    var a = el('a', { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })), download: 'constraint-log-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.csv' });
+    document.body.append(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+
+  /* ---------- sheets ---------- */
+  function openJobSheet() {
+    var input = el('input', { id: 'jobInput', type: 'text', value: jobName, maxlength: '80', placeholder: 'Job name', autocomplete: 'off', enterkeyhint: 'done' });
+    var err = el('p', { class: 'err', hidden: true });
+    var save = el('button', { class: 'primary', type: 'button', text: 'Save job name' });
+    save.addEventListener('click', async function () {
+      save.disabled = true;
+      try {
+        await api('meta?on_conflict=key', { method: 'POST', prefer: 'resolution=merge-duplicates,return=minimal', body: { key: 'job', value: input.value.trim() } });
+        jobName = input.value.trim(); renderHeader(); closeLayer();
+      } catch (e) { err.textContent = errText(e); err.hidden = false; save.disabled = false; }
+    });
+    openLayer(el('div', { class: 'sheet', role: 'dialog', 'aria-label': 'Job name' },
+      el('h2', { text: 'Job name' }),
+      el('div', { class: 'field' }, el('label', { for: 'jobInput', text: 'Shown at the top of the log' }), input),
+      err,
+      el('div', { class: 'actions' }, save, el('button', { class: 'quiet', type: 'button', text: 'Cancel', onclick: closeLayer }))
+    ));
+    input.focus();
+  }
+
+  function listFor(field) {
+    var set = {};
+    items.forEach(function (i) { var v = (i[field] || '').trim(); if (v) set[v] = true; });
+    return Object.keys(set).sort(function (a, b) { return a.localeCompare(b); });
+  }
+  function datalist(id, values) {
+    return el('datalist', { id: id }, values.map(function (v) { return el('option', { value: v }); }));
+  }
+
+  function openSheet(item) {
+    var isNew = !item;
+    var curStatus = isNew ? 'open' : (STATUS[item.status] ? item.status : 'open');
+    var priority = isNew ? 'normal' : (PRIORITY[item.priority] ? item.priority : 'normal');
+    var busy = false;
+    var mine = !isNew && (item.added_by || '').trim().toLowerCase() === state.name.trim().toLowerCase();
+
+    var people = Array.from(new Set(listFor('tracker').concat(listFor('added_by')))).sort(function (a, b) { return a.localeCompare(b); });
+    var parties = listFor('waiting_on');
+    var areas = listFor('area');
+
+    var title = el('input', { id: 'f_title', type: 'text', maxlength: '160', placeholder: 'What is holding the work up?', autocomplete: 'off', enterkeyhint: 'next', value: isNew ? '' : (item.title || '') });
+    var details = el('textarea', { id: 'f_details', maxlength: '2000', rows: '3', placeholder: 'Background, what’s needed to clear it, who has been contacted' });
+    details.value = isNew ? '' : (item.details || '');
+    var due = el('input', { id: 'f_due', type: 'date', value: isNew ? '' : (item.due_date || '') });
+    var tracker = el('input', { id: 'f_tracker', type: 'text', list: 'dl_people', maxlength: '60', autocomplete: 'off', placeholder: 'Who is tracking it', value: isNew ? state.name.trim() : (item.tracker || '') });
+    var waiting = el('input', { id: 'f_waiting', type: 'text', list: 'dl_parties', maxlength: '80', autocomplete: 'off', placeholder: 'Owner, architect, a sub, a city department', value: isNew ? '' : (item.waiting_on || '') });
+    var category = el('select', { id: 'f_cat' }, el('option', { value: '', text: 'Choose a category' }), CATEGORIES.map(function (c) { return el('option', { value: c, text: c }); }));
+    category.value = isNew ? lastCategory : (item.category || '');
+    var area = el('input', { id: 'f_area', type: 'text', list: 'dl_areas', maxlength: '120', autocomplete: 'off', placeholder: 'Building, level, or schedule activity', value: isNew ? '' : (item.area || '') });
+    var ref = el('input', { id: 'f_ref', type: 'text', maxlength: '60', autocomplete: 'off', placeholder: 'RFI 042, Submittal 09 21 16, PCO-02', value: isNew ? '' : (item.ref || '') });
+    var impact = el('input', { id: 'f_impact', type: 'number', inputmode: 'numeric', min: '0', max: '999', step: '1', placeholder: 'Days', value: (!isNew && item.impact_days != null) ? String(item.impact_days) : '' });
+
+    var err = el('p', { class: 'err', hidden: true, role: 'alert' });
+    var primary = el('button', { class: 'primary', type: 'button', text: isNew ? 'Add to log' : 'Save changes' });
+    function setErr(m) { err.textContent = m || ''; err.hidden = !m; }
+    function sync() { primary.disabled = busy || !title.value.trim(); }
+    title.addEventListener('input', sync);
+
+    var prioSet = el('div', { class: 'seg' });
+    function drawPrio() {
+      prioSet.textContent = '';
+      PORDER.forEach(function (k) {
+        prioSet.append(el('button', { type: 'button', 'aria-pressed': String(k === priority), style: '--c:' + PRIORITY[k].color, text: PRIORITY[k].label,
+          onclick: function () { priority = k; drawPrio(); } }));
+      });
+    }
+    drawPrio();
+
+    function values() {
+      var n = impact.value.trim();
+      return {
+        title: title.value.trim(), details: details.value.trim(), category: category.value, area: area.value.trim(),
+        priority: priority, due_date: due.value || null, tracker: tracker.value.trim(), waiting_on: waiting.value.trim(),
+        ref: ref.value.trim(), impact_days: n === '' || isNaN(parseInt(n, 10)) ? null : Math.max(0, parseInt(n, 10))
+      };
+    }
+
+    async function commit(newStatus) {
+      var v = values();
+      if (!v.title) { setErr('Describe the constraint first.'); return; }
+      busy = true; sync(); setErr('');
+      try {
+        if (isNew) {
+          v.id = uuid(); v.added_by = state.name.trim();
+          await api('site_constraints', { method: 'POST', prefer: 'return=minimal', body: v });
+          lastCategory = v.category; tab = 'open';
+          toast('Added to the log');
+        } else {
+          if (newStatus && newStatus !== curStatus) {
+            v.status = newStatus; v.status_by = state.name.trim(); v.status_at = new Date().toISOString();
+            v.resolved_at = newStatus === 'resolved' ? new Date().toISOString() : null;
+            tab = newStatus;
+          }
+          await api('site_constraints?id=eq.' + item.id, { method: 'PATCH', prefer: 'return=minimal', body: v });
+          if (v.status) {
+            api('site_constraint_updates', { method: 'POST', prefer: 'return=minimal', body: { constraint_id: item.id, note: 'Status changed to ' + STATUS[v.status].label, by: state.name.trim(), kind: 'status' } }).catch(function () {});
+          }
+          toast(v.status ? 'Marked ' + STATUS[v.status].label.toLowerCase() : 'Saved');
+        }
+        closeLayer();
+        await refresh();
+      } catch (e) {
+        busy = false; sync(); setErr(errText(e));
+      }
+    }
+    primary.addEventListener('click', function () { commit(null); });
+
+    var kids = [
+      el('h2', { text: isNew ? 'Add constraint' : 'Constraint details' }),
+      datalist('dl_people', people), datalist('dl_parties', parties), datalist('dl_areas', areas),
+      el('div', { class: 'field' }, el('label', { for: 'f_title', text: 'Constraint' }), title),
+      el('div', { class: 'field' }, el('label', { for: 'f_details', text: 'Details' }), details),
+      el('div', { class: 'field' }, el('span', { class: 'lbl', text: 'Priority' }), prioSet),
+      el('div', { class: 'field' }, el('label', { for: 'f_due', text: 'Due date' }),
+        el('div', { class: 'row' }, due, el('button', { class: 'small', type: 'button', text: 'Clear', onclick: function () { due.value = ''; } }))),
+      el('div', { class: 'field' }, el('label', { for: 'f_tracker', text: 'Who is tracking it' }), tracker),
+      el('div', { class: 'field' }, el('label', { for: 'f_waiting', text: 'Waiting on' }), waiting),
+      el('div', { class: 'field' }, el('label', { for: 'f_cat', text: 'Category' }), category),
+      el('div', { class: 'field' }, el('label', { for: 'f_area', text: 'Area or schedule activity affected' }), area),
+      el('div', { class: 'two' },
+        el('div', { class: 'field' }, el('label', { for: 'f_ref', text: 'Reference' }), ref),
+        el('div', { class: 'field' }, el('label', { for: 'f_impact', text: 'Schedule impact (days)' }), impact))
+    ];
+
+    if (!isNew) {
+      var statusSet = el('div', { class: 'seg' });
+      ORDER.forEach(function (s) {
+        statusSet.append(el('button', { type: 'button', 'aria-pressed': String(s === curStatus), style: '--c:' + STATUS[s].color, text: STATUS[s].label,
+          onclick: function () { if (s !== curStatus) commit(s); } }));
+      });
+      kids.push(el('div', { class: 'field' }, el('span', { class: 'lbl', text: 'Status' }), statusSet));
+      var hist = el('div', { class: 'history' }, el('span', { text: 'Logged by ' + who(item.added_by) + ' ' + when(item.added_at) }));
+      if (item.status_at) hist.append(el('span', { text: 'Status last changed by ' + who(item.status_by) + ' ' + when(item.status_at) }));
+      kids.push(hist);
+    }
+
+    kids.push(err);
+    var actions = el('div', { class: 'actions' }, primary, el('button', { class: 'quiet', type: 'button', text: 'Cancel', onclick: closeLayer }));
+    if (!isNew && mine) {
+      var armed = false;
+      var del = el('button', { class: 'quiet danger', type: 'button', text: 'Delete constraint' });
+      del.addEventListener('click', async function () {
+        if (!armed) { armed = true; del.textContent = 'Tap again to delete'; return; }
+        del.disabled = true;
+        try {
+          await api('site_constraints?id=eq.' + item.id, { method: 'DELETE', prefer: 'return=minimal' });
+          closeLayer(); toast('Constraint deleted'); refresh();
+        } catch (e) { del.disabled = false; setErr(errText(e)); }
+      });
+      actions.append(del);
+    }
+    kids.push(actions);
+
+    if (!isNew) {
+      var feed = el('div', { class: 'feed' }, el('p', { class: 'meta', text: 'Loading updates…' }));
+      var note = el('textarea', { id: 'f_note', maxlength: '2000', rows: '2', placeholder: 'Add an update: what changed, who you spoke with, new date' });
+      var post = el('button', { class: 'small', type: 'button', text: 'Post update' });
+      var noteErr = el('p', { class: 'err', hidden: true, role: 'alert' });
+
+      var loadFeed = async function () {
+        try {
+          var rows = await api('site_constraint_updates?select=*&constraint_id=eq.' + item.id + '&order=at.asc');
+          feed.textContent = '';
+          if (!rows || !rows.length) { feed.append(el('p', { class: 'meta', text: 'No updates yet.' })); return; }
+          rows.forEach(function (u) {
+            feed.append(el('div', { class: 'upd' + (u.kind === 'status' ? ' status' : '') },
+              el('span', { class: 'meta', text: who(u.by) + ' ' + when(u.at) }),
+              el('span', { class: 'txt', text: u.note })));
+          });
+        } catch (e) { feed.textContent = ''; feed.append(el('p', { class: 'meta', text: 'Couldn’t load updates.' })); }
+      };
+      post.addEventListener('click', async function () {
+        var text = note.value.trim();
+        if (!text) return;
+        post.disabled = true; noteErr.hidden = true;
+        try {
+          var nowIso = new Date().toISOString();
+          await api('site_constraint_updates', { method: 'POST', prefer: 'return=minimal', body: { constraint_id: item.id, note: text, by: state.name.trim(), kind: 'note' } });
+          await api('site_constraints?id=eq.' + item.id, { method: 'PATCH', prefer: 'return=minimal', body: { last_note: text, last_note_by: state.name.trim(), last_note_at: nowIso } });
+          note.value = '';
+          await loadFeed();
+          refresh();
+        } catch (e) { noteErr.textContent = errText(e); noteErr.hidden = false; }
+        post.disabled = false;
+      });
+
+      kids.push(el('h3', { text: 'Updates' }), feed,
+        el('div', { class: 'field' }, el('label', { for: 'f_note', text: 'New update' }), note), noteErr,
+        el('div', { class: 'row' }, post));
+      loadFeed();
+    }
+
+    openLayer(el('div', { class: 'sheet', role: 'dialog', 'aria-label': isNew ? 'Add constraint' : 'Constraint details' }, kids));
+    sync();
+    if (isNew) title.focus();
+  }
+
+  /* ---------- start ---------- */
+  function start() {
+    started = true;
+    $('top').hidden = false; $('mainWrap').hidden = false; $('addbar').hidden = false;
+    toolbarSig = '';
+    renderHeader();
+    render();
+    loadJob();
+    refresh();
+    startPolling();
+  }
+
+  $('addBtn').addEventListener('click', function () { openSheet(null); });
+  $('jobBtn').addEventListener('click', openJobSheet);
+  $('whoBtn').addEventListener('click', function () { showGate(''); });
+
+  (async function init() {
+    if (!configured()) {
+      $('notice').append(el('div', { class: 'notice', text: 'This page isn’t connected to a database yet. Open index.html, paste your Supabase URL and key at the top of the script, and upload it again. UPDATE.md has the steps.' }));
+      return;
+    }
+    state.name = recall('punch.name'); state.code = recall('punch.code');
+    if (!state.name || !state.code) { showGate(''); return; }
+    try {
+      if (await codeIsValid()) { start(); return; }
+      showGate('The team code was rejected. Enter it again.');
+    } catch (e) {
+      start();
+    }
+  })();
+})();
+</script>
+</body>
+</html>
